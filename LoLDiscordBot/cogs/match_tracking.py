@@ -4,14 +4,14 @@ from config import DISCORD_CHANNEL_ID
 
 class MatchTracking(commands.Cog):
     PERFORMANCE_WEIGHTS = {
-        'kills': 0.25,
-        'deaths': -0.6,  
-        'assists': 0.3,
-        'kill_participation': 0.5,
-        'damage_delt': 0.2,
-        'gpm': 0.2,
-        'cs_per_min': 0.15,
-        'ward_score': 0.2,
+        'kills': 0.3,
+        'deaths': -1.8,  
+        'assists': 0.2,
+        'kill_participation': 0.0,
+        'damage_delt': 0.1,
+        'gpm': 0.15,
+        'cs_per_min': 0.1,
+        'ward_score': 0.15,
         # Add more metrics and weights as needed
     }
 

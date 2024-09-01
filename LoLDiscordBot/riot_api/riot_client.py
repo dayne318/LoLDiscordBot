@@ -69,7 +69,7 @@ class RiotAPIClient:
                     'deaths': participant['deaths'],
                     'assists': participant['assists'],
                     'kill_participation': kill_participation,
-                    'damage_dealt': participant['totalDamageDealtToChampions'],
+                    'damage_delt': participant['totalDamageDealtToChampions'],
                     'damage_per_min': damage_per_min,
                     'cs': participant['totalMinionsKilled'] + participant['neutralMinionsKilled'],
                     'cs_per_min': cs_per_min,
