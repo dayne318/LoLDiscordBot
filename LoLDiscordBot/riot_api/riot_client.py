@@ -38,6 +38,9 @@ class RiotAPIClient:
     def extract_game_stats(self, match_data, puuid):
         if not match_data:
             return None
+        
+        support_items = {"3858", "3857", "3862", "3853", "3850", "3851", "3860", "3855"}
+
         for participant in match_data['info']['participants']:
             if participant['puuid'] == puuid:
                 game_duration_seconds = match_data['info']['gameDuration']
@@ -46,6 +49,19 @@ class RiotAPIClient:
                 queue_id = match_data['info']['queueId']
                 game_type = QUEUE_TYPE_MAP.get(queue_id, "Unknown")
 
+            # Determine the role
+            is_support = any(item in support_items for item in [
+                participant['item0'], participant['item1'], participant['item2'], 
+                participant['item3'], participant['item4'], participant['item5'], participant['item6']
+            ])
+            is_jungle = participant['spell1Id'] == 11 or participant['spell2Id'] == 11
+
+            if is_support:
+                role = 'Support'
+            elif is_jungle:
+                role = 'Jungle'
+            else:
+                role = 'Laner'
                 
                 team_id = participant['teamId']
                 friendly_kills = sum(p['kills'] for p in match_data['info']['participants'] if p['teamId'] == team_id)
@@ -55,6 +71,7 @@ class RiotAPIClient:
                 cs = participant['totalMinionsKilled'] + participant['neutralMinionsKilled']
                 cs_per_min = round(cs / game_duration_minutes, 2) if game_duration_minutes > 0 else 0
                 damage_per_min = round(participant['totalDamageDealtToChampions'] / game_duration_minutes, 2) if game_duration_minutes > 0 else 0
+                ward_score_per_min = round(participant['visionScore'] / game_duration_minutes, 2) if game_duration_minutes > 0 else 0
 
                 # Map item IDs to names using the fetched ITEM_NAME_MAP
                 items = [ITEM_NAME_MAP.get(item_id, f"Unknown Item ({item_id})") for item_id in [
@@ -74,6 +91,7 @@ class RiotAPIClient:
                     'cs': participant['totalMinionsKilled'] + participant['neutralMinionsKilled'],
                     'cs_per_min': cs_per_min,
                     'ward_score': participant['visionScore'],
+                    'ward_score_per_min': ward_score_per_min,
                     'gold_earned': participant['goldEarned'],
                     'gpm': gold_per_min,
                     'largest_multi_kill': participant['largestMultiKill'],
@@ -82,6 +100,7 @@ class RiotAPIClient:
                     'friendly_kills': friendly_kills,
                     'enemy_kills': enemy_kills,
                     'game_type': game_type,
+                    'role': role,  # Added role to the stats
                 }
         return None
     

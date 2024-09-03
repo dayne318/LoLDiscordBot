@@ -5,13 +5,13 @@ from config import DISCORD_CHANNEL_ID
 class MatchTracking(commands.Cog):
     PERFORMANCE_WEIGHTS = {
         'kills': 0.3,
-        'deaths': -2,  
+        'deaths': -2.0,  
         'assists': 0.2,
         'kill_participation': 0.0,
-        'damage_delt': 0.1,
+        'damage_delt': 0.05, #low weight - Need to fix how this is calculated related to game time
         'gpm': 0.15,
         'cs_per_min': 0.1,
-        'ward_score': 0.15,
+        'ward_score_per_min': 0.15,
         # Add more metrics and weights as needed
     }
 
@@ -68,8 +68,9 @@ class MatchTracking(commands.Cog):
                 if match_data:
                     stats = self.riot_client.extract_game_stats(match_data, puuid)
                     if stats:
+                        role = stats.get('role', 'Laner') #Default laner if role is not found
                         performance_score = self.evaluate_performance(stats)
-                        print(f"Performance score for {riot_id}: {performance_score}")
+                        print(f"Performance score for {riot_id} ({role}): {performance_score}")
 
                         if performance_score < self.PERFORMANCE_THRESHOLD:
                             print(f"Posting match details for {riot_id} due to low performance.")
@@ -84,30 +85,64 @@ class MatchTracking(commands.Cog):
             else:
                 print(f"No new match found for {riot_id}.")
 
-    def evaluate_performance(self, stats):
+    def evaluate_performance(self, stats, role):
         score = 0
+        # Define normalization values for each metric
+        normalization_values = {
+            'kills': 10,
+            'deaths': 10,
+            'assists': 15,
+            'kill_participation': 100,
+            'damage_delt': 60000,
+            'gpm': 330,
+            'cs_per_min': 5,
+            'ward_score_per_min': 0.8,
+        }
+
+        # Adjust normalization based on role
+        if role == 'Support':
+            normalization_values['damage_delt'] = 30000  # Supports deal less damage, for example
+            normalization_values['ward_score_per_min'] = 1.3  # Higher ward score expectation
+            cs_per_min_threshold = 0.1  # Supports have much lower CS
+            kill_participation_threshold = 0.3
+            ward_score_threshold = 0.5
+            gpm_score_threshold = 0.85
+            damage_delt_threshold = 0.1 # Some supports don't do much damage. Don't punish them for this
+        elif role == 'Jungle':
+            normalization_values['cs_per_min'] = 6  # Junglers tend to have slightly higher CS/min
+            kill_participation_threshold = 0.35
+            ward_score_threshold = 0.4
+            cs_per_min_threshold = 0.3
+            damage_delt_threshold = 0.2 # Some junglers dont do much damage. Punish Jungle if not 20% of normalized value
+            
+        else:
+            # Default laner values
+            kill_participation_threshold = 0.35
+            ward_score_threshold = 0.25
+            cs_per_min_threshold = 0.4
+            damage_delt_threshold = 0.3 # Punish laner if less than 30% damage of normalized value
 
         # Normalize metrics
-        normalized_kills = stats['kills'] / 10  # Assuming 10 is a good max value for kills
-        normalized_deaths = (10 - stats['deaths']) / 10  # Inverting to reward fewer deaths
-        normalized_assists = stats['assists'] / 15  # Assuming 15 is a good max value for assists
-        normalized_kill_participation = stats['kill_participation']  # is a percentage (represented as a whole number)
-        normalized_damage_delt = round(stats['damage_delt'] / 60000)  # Assuming 60,000 is a max value
-        normalized_gpm = stats['gpm'] / 330  # Assuming 330 is a good max value for GPM
-        normalized_cs_per_min = round(stats['cs_per_min'] / 5, 2)  # Assuming 5 is a good max value for CS per min
-        normalized_ward_score = stats['ward_score'] / 45  # Assuming 45 is a good max value for ward score
+        normalized_metrics = {key: round(stats[key] / max_value, 2) for key, max_value in normalization_values.items()}
+
+        # Apply penalties for low values
+        if normalized_metrics['kill_participation'] < kill_participation_threshold:
+            score += (normalized_metrics['kill_participation'] - 1) * self.PERFORMANCE_WEIGHTS['kill_participation']
+        if normalized_metrics['ward_score_per_min'] < ward_score_threshold:
+            score += (normalized_metrics['ward_score_per_min'] - 1) * self.PERFORMANCE_WEIGHTS['ward_score_per_min']
+        if normalized_metrics['cs_per_min'] < cs_per_min_threshold:
+            score += (normalized_metrics['cs_per_min'] - 1) * self.PERFORMANCE_WEIGHTS['cs_per_min']
+        if normalized_metrics['damage_delt'] < damage_delt_threshold:
+            score += (normalized_metrics['damage_delt'] - 1) * self.PERFORMANCE_WEIGHTS['damage_delt']
+        if normalized_metrics['gpm'] < gpm_score_threshold:
+            score += (normalized_metrics['gpm'] - 1) * self.PERFORMANCE_WEIGHTS['gpm']
 
         # Calculate weighted score
-        score += normalized_kills * self.PERFORMANCE_WEIGHTS['kills'] 
-        score += normalized_deaths * self.PERFORMANCE_WEIGHTS['deaths'] 
-        score += normalized_assists * self.PERFORMANCE_WEIGHTS['assists']
-        score += normalized_kill_participation * self.PERFORMANCE_WEIGHTS['kill_participation']
-        score += normalized_damage_delt * self.PERFORMANCE_WEIGHTS['damage_delt']
-        score += normalized_gpm * self.PERFORMANCE_WEIGHTS['gpm']
-        score += normalized_cs_per_min * self.PERFORMANCE_WEIGHTS['cs_per_min']
-        score += normalized_ward_score * self.PERFORMANCE_WEIGHTS['ward_score']
-        # Add additional metrics if needed
+        for metric, weight in self.PERFORMANCE_WEIGHTS.items():
+            score += normalized_metrics.get(metric, 0) * weight
+
         return score
+
 
 async def setup(bot):
     await bot.add_cog(MatchTracking(bot))
