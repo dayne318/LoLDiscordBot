@@ -83,29 +83,33 @@ class RiotAPIClient:
             print(f"Failed to retrieve rank for PUUID {puuid}: {response.status_code}")
             return None
         
-    def get_champion_mastery(self, puuid, champion_id=None):
-        """Fetches champion mastery for a player. If champion_id is provided, returns mastery for that champion.
-        Otherwise, returns the top 3 champions by mastery points."""
-        url = f"https://na1.api.riotgames.com/lol/champion-mastery/v4/champion-masteries/by-puuid/{puuid}"
+    def get_champion_mastery(self, puuid, champion_id, region="na1"):
+        """Fetch mastery points for a specific champion."""
+        url = f"https://{region}.api.riotgames.com/lol/champion-mastery/v4/champion-masteries/by-puuid/{puuid}/by-champion/{champion_id}"
+        response = requests.get(url, headers={'X-Riot-Token': RIOT_API_KEY})
+
+        print(f"Fetching mastery for PUUID {puuid}, Champion ID {champion_id} - Status: {response.status_code}")
+        print(f"API Response: {response.json()}")  # Debugging line
+
+        if response.status_code == 200:
+            data = response.json()
+            return {
+                "championLevel": data.get("championLevel"),
+                "championPoints": data.get("championPoints")
+            } if "championLevel" in data else None
+        else:
+            print(f"Failed to retrieve mastery for PUUID {puuid} (Champion ID {champion_id}): {response.status_code}")
+            return None
+
+    def get_top_mastery(self, puuid, region="na1"):
+        """Fetch top 3 mastery champions."""
+        url = f"https://{region}.api.riotgames.com/lol/champion-mastery/v4/champion-masteries/by-puuid/{puuid}?count=3"
         response = requests.get(url, headers={'X-Riot-Token': RIOT_API_KEY})
 
         if response.status_code == 200:
-            mastery_data = response.json()
-
-            if champion_id:
-                for champ in mastery_data:
-                    if champ["championId"] == champion_id:
-                        return {
-                            "championId": champ["championId"],
-                            "championLevel": champ["championLevel"],
-                            "championPoints": champ["championPoints"],
-                            "lastPlayTime": champ["lastPlayTime"]
-                        }
-                return None  # No mastery found for the given champion
-            
-            return mastery_data[:3]  # Return top 3 champions
+            return response.json()
         else:
-            print(f"Failed to retrieve mastery for PUUID {puuid}: {response.status_code}")
+            print(f"Failed to retrieve top mastery for PUUID {puuid}: {response.status_code}")
             return None
 
     def get_match_details(self, match_id):

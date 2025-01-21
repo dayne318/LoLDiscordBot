@@ -16,5 +16,7 @@ CHAMPION_NAME_TO_ID = {
     "Singed": 27, "Sion": 14, "Sivir": 15, "Skarner": 72, "Sona": 37, "Soraka": 16, "Swain": 50, "Sylas": 517, "Syndra": 134,
     "Tahm Kench": 223, "Taliyah": 163, "Talon": 91, "Taric": 44, "Teemo": 17, "Thresh": 412, "Tristana": 18, "Trundle": 48,
     "Tryndamere": 23, "Twisted Fate": 4, "Twitch": 29, "Udyr": 77, "Urgot": 6, "Varus": 110, "Vayne": 67, "Veigar": 45,
-    "Vel'Koz": 161, "Vex": 711, "Vi": 254, "Viego": 234, "Viktor": 112, "Vladimir": 8, "Volibear": 106, "Warwick": 19, "Zac": 154
+    "Vel'Koz": 161, "Vex": 711, "Vi": 254, "Viego": 234, "Viktor": 112, "Vladimir": 8, "Volibear": 106, "Warwick": 19,
+    "Xayah" : 498, "Xerath" : 101, "XinZhao" : 5, "Yasuo" : 157, "Yone" : 777, "Yorick" : 83, "Yuumi" : 350, "Zac": 154,
+    "Zeri" : 221, "Ziggs" : 115, "Zilean" : 26, "Zoe" : 142, "Zyra" : 143
 }

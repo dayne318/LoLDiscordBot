@@ -242,69 +242,82 @@ class MatchTracking(commands.Cog):
     @commands.command(name="mastery")
     async def mastery(self, ctx, *args):
         """
-        Fetches champion mastery data.
+        Fetches mastery for a summoner.
         Usage:
-        - `!mastery {username}` → Shows top 3 champions for that summoner.
-        - `!mastery {username} {champion}` → Shows mastery for a specific champion.
+        - `!mastery username#TAG` (Shows top 3 champions)
+        - `!mastery username#TAG champion` (Shows mastery for a specific champion)
         """
         if len(args) == 1:
             username = args[0]
-            champion = None
+            champion_id = None  # Get top 3 champions
         elif len(args) == 2:
             username = args[0]
-            champion = args[1].capitalize()
+            champion_name = args[1].capitalize()  # Format properly
+
+            # Convert champion name to ID
+            champion_id = CHAMPION_NAME_TO_ID.get(champion_name)
+            if not champion_id:
+                await ctx.send(f"⚠️ Invalid champion name: `{champion_name}`.")
+                return
         else:
-            await ctx.send("⚠️ Usage: `!mastery {username}` or `!mastery {username} {champion}`")
+            await ctx.send("Invalid format. Use `!mastery username#TAG [champion]`.")
             return
 
-        # Retrieve PUUID
         puuid = self.riot_client.get_puuid_by_riot_id(username)
         if not puuid:
             await ctx.send(f"⚠️ Could not find summoner `{username}`.")
             return
 
-        # If a champion is provided, get its mastery
-        if champion:
-            champion_id = CHAMPION_NAME_TO_ID.get(champion)
-            if not champion_id:
-                await ctx.send(f"⚠️ Champion `{champion}` not found.")
+        region = "na1"  # Adjust this dynamically if needed
+
+        if champion_id:
+            mastery_data = self.riot_client.get_champion_mastery(puuid, champion_id, region)
+
+            if not mastery_data:
+                await ctx.send(f"⚠️ `{username}` has no mastery data for {champion_name}.")
                 return
 
-            mastery_data = self.riot_client.get_champion_mastery(puuid, champion_id)
-            if not mastery_data:
-                await ctx.send(f"⚠️ No mastery data found for `{username}` on `{champion}`.")
-                return
+            # Convert champion name properly for the URL (no spaces, case-sensitive)
+            champion_name_url = champion_name.replace(" ", "").capitalize()
+            champion_icon_url = f"https://ddragon.leagueoflegends.com/cdn/14.1.1/img/champion/{champion_name_url}.png"
 
             embed = discord.Embed(
-                title=f"{username}'s Mastery on {champion}",
+                title=f"{username}'s Mastery for {champion_name}",
                 description=f"**Mastery Level:** {mastery_data['championLevel']}\n"
                             f"**Mastery Points:** {mastery_data['championPoints']:,}",
                 color=discord.Color.blue()
             )
-            embed.set_thumbnail(url=f"http://ddragon.leagueoflegends.com/cdn/14.1.1/img/champion/{champion}.png")
-            await ctx.send(embed=embed)
+            embed.set_thumbnail(url=champion_icon_url)  # Add champion image
 
-        # If no champion is provided, return top 3 champions
         else:
-            top_champs = self.riot_client.get_champion_mastery(puuid)
-            if not top_champs:
-                await ctx.send(f"⚠️ No champion mastery data found for `{username}`.")
+            mastery_data = self.riot_client.get_top_mastery(puuid, region)
+
+            if not mastery_data:
+                await ctx.send(f"⚠️ `{username}` has no champion mastery data.")
                 return
 
             embed = discord.Embed(
-                title=f"{username}'s Top 3 Champions by Mastery",
+                title=f"Top 3 Mastery Champions for {username}",
                 color=discord.Color.blue()
             )
 
-            for champ in top_champs:
-                champ_name = next((name for name, id in CHAMPION_NAME_TO_ID.items() if id == champ["championId"]), f"Unknown Champion ({champ['championId']})")
+            for champ in mastery_data[:3]:
+                champ_name = [name for name, id in CHAMPION_NAME_TO_ID.items() if id == champ["championId"]]
+                champ_name = champ_name[0] if champ_name else "Unknown Champion"
+
+                # Champion image URL
+                champion_name_url = champ_name.replace(" ", "").capitalize()
+                champion_icon_url = f"https://ddragon.leagueoflegends.com/cdn/14.1.1/img/champion/{champion_name_url}.png"
+
                 embed.add_field(
-                    name=f"{champ_name} (Lvl {champ['championLevel']})",
-                    value=f"{champ['championPoints']:,} Mastery Points",
+                    name=f"{champ_name}",
+                    value=f"**Level:** {champ['championLevel']}  |  **Points:** {champ['championPoints']:,}",
                     inline=False
                 )
+                embed.set_thumbnail(url=champion_icon_url)  # Set image to last champion (not ideal for top 3)
 
-            await ctx.send(embed=embed)
+        await ctx.send(embed=embed)
+
 
 async def setup(bot):
     await bot.add_cog(MatchTracking(bot))
